@@ -1,37 +1,101 @@
 # Scam Shield
 
-Detects scam SMS: sorts a message into **ham** (legitimate), **spam** (unwanted
-promotion) or **smishing** (phishing by SMS: fake KYC, refund, prize, delivery links).
+**Paste an SMS, find out if it is a scam.** A fine-tuned DistilBERT model sorts
+messages into **smishing** (phishing by SMS: fake KYC, bill, courier, prize,
+job offers), **spam** (unwanted promotion) or **ham** (legitimate), and plain
+rules point out the warning signs so the user learns *why*.
 
-Work in progress.
+India loses thousands of crores a year to SMS and call fraud, and the messages
+are written to look like the bank alerts people get every day. The hard part
+is not catching scams; it is catching them **without** flagging real OTPs and
+UPI alerts.
 
-## Setup
+## Results
+
+Test set: 870 held-out messages from the public dataset.
+India set: 60 synthetic Indian-style messages (see [eval/README.md](eval/README.md)), never trained on.
+
+| Model | Test macro F1 | Test scams caught | Test false alarms | India macro F1 | India scams caught | India false alarms |
+|---|---|---|---|---|---|---|
+| TF-IDF + logistic regression | 0.919 | 131/144 | 0/726 | 0.695 | 29/35 | 9/25 |
+| TF-IDF + LR, + Indian augment | 0.915 | 130/144 | 1/726 | 0.769 | 28/35 | 5/25 |
+| DistilBERT | 0.906 | 139/144 | 4/726 | 0.720 | **35/35** | 11/25 |
+| **DistilBERT + Indian augment** | **0.925** | **140/144** | 3/726 | **0.832** | 32/35 | **2/25** |
+
+"Scams caught" counts spam + smishing flagged as either; "false alarms" are
+legitimate messages flagged as either.
+
+**What the numbers say**
+
+- DistilBERT catches more scams than the keyword baseline (97% vs 91%), at the
+  cost of a few false alarms.
+- Both models trained on the public data flag Indian bank alerts, OTPs and
+  delivery updates as spam: the dataset has almost none, so "sounds like a
+  company" was learned as "spam".
+- Adding 458 template-generated Indian messages to training cut India false
+  alarms from 11 to 2 **and** improved the original test set, so it did not
+  just overfit to India-style text.
+
+## What still fails
+
+- **Hinglish** ("Aapka bijli connection aaj raat kaat diya jayega…") gets through. The tokenizer is English-only.
+- **"Share the OTP to get your refund"** gets through. The augmented data taught
+  "OTP message = safe"; the red-flag rules still catch it in the app.
+- Some real bank debit alerts ("…Not you? Call…") are still called spam.
+- The India set is synthetic and written by the same person as the augment
+  templates, so its gains are optimistic. The next step is a set of **real**
+  forwarded scam SMS (`eval/india_real.csv`); the evaluator picks it up automatically.
+
+## Run it
 
 ```powershell
 uv venv --python 3.11 .venv
 .venv\Scripts\activate
+uv pip install torch --index-url https://download.pytorch.org/whl/cu126
 uv pip install -r requirements.txt
-```
 
-## Run
-
-```powershell
-python -m src.data        # download (245 KB), clean, split 70/15/15
-python -m src.baseline    # train TF-IDF + logistic regression, score on test
+python -m src.data                 # download (245 KB), clean, split 70/15/15
+python -m src.augment              # generate the Indian training messages
+python -m src.baseline --augment   # seconds, CPU
+python -m src.finetune --augment   # ~2 min on an RTX 4060
+python -m src.evaluate             # every model on every test set
+streamlit run app.py               # the demo
 python -m pytest
 ```
 
-## Results so far (test set, 870 messages)
+Drop `--augment` to train the plain versions for comparison.
 
-| Model | Macro F1 | Scams caught | False alarms on ham |
-|---|---|---|---|
-| TF-IDF + logistic regression | 0.920 | 131 / 144 (91.0%) | 0 / 726 |
+## How it works
+
+```mermaid
+flowchart LR
+    A[SMS text] --> B[DistilBERT tokenizer]
+    B --> C[DistilBERT fine-tuned<br/>3 labels]
+    C --> D[smishing / spam / ham<br/>+ probabilities]
+    A --> E[red-flag rules<br/>OTP ask, UPI link, short URL,<br/>threat, prize, private number, KYC]
+    D --> F[Streamlit app]
+    E --> F
+```
+
+- `src/data.py` downloads and cleans the data: lowercases labels, drops 34
+  messages that appear with two different labels, removes 106 duplicates so no
+  message sits in both train and test, then splits 70/15/15 with a fixed seed.
+- `src/baseline.py` word + character n-gram TF-IDF into a class-balanced logistic regression.
+- `src/finetune.py` fine-tunes `distilbert-base-uncased` for 4 epochs with a
+  class-weighted loss, keeps the epoch with the best validation F1, and scores
+  the test set once.
+- `src/augment.py` template generator for Indian transactional ham and smishing.
+- `src/evaluate.py` scores every trained model on the test split and every CSV in `eval/`.
+- `src/redflags.py` seven regex rules, each with a one-line explanation for the user.
+
+More detail and the reasons behind each choice: [docs/INTERVIEW_NOTES.md](docs/INTERVIEW_NOTES.md).
 
 ## Data
 
 Mishra, S. & Soni, D. (2022). *SMS Phishing Dataset for Machine Learning and
-Pattern Recognition*. Mendeley Data, V1. DOI: 10.17632/f45bkkt8pr.1
+Pattern Recognition*. Mendeley Data, V1. DOI: 10.17632/f45bkkt8pr.1.
+Downloaded by the code, not redistributed here.
 
-5,971 raw messages become 5,797 after cleaning: 34 messages that appear with two
-different labels are dropped, and 106 exact duplicates are removed so no message
-can sit in both train and test.
+## Author
+
+**Vivek Vagale** - [@VivekVagale](https://github.com/VivekVagale)
