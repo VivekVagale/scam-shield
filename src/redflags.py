@@ -50,3 +50,15 @@ def find_flags(text: str) -> list[Flag]:
         if m:
             flags.append(Flag(name, why, m.group(0)))
     return flags
+
+
+# Rules precise enough to override a "safe" verdict: a legitimate message
+# never asks you to share an OTP/PIN, and never sends a UPI pay link.
+CRITICAL = {"Asks for OTP / PIN", "UPI collect / pay link"}
+
+
+def combine(label: str, flags: list[Flag]) -> str:
+    """Model verdict, escalated to smishing when a critical rule fires on a 'ham'."""
+    if label == "ham" and any(f.name in CRITICAL for f in flags):
+        return "smishing"
+    return label

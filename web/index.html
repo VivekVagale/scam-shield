@@ -130,6 +130,8 @@ const VERDICT = {
   ham: ["✅ Looks legitimate", "Nothing scam-like found. Still, never share an OTP."],
 };
 const COLOR = { smishing: "var(--scam)", spam: "var(--spam)", ham: "var(--ham)" };
+// Rules precise enough to override a "safe" verdict (same as CRITICAL in src/redflags.py)
+const CRITICAL = new Set(["Asks for OTP / PIN", "UPI collect / pay link"]);
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -166,17 +168,22 @@ async function run() {
   const out = await clf(text, { top_k: null });
   $("check").disabled = false;
   const probs = Object.fromEntries(out.map((o) => [o.label, o.score]));
-  const label = out[0].label;
+  const flags = RULES.map(([name, rx, why]) => { const m = text.match(rx); return m && { name, why, match: m[0] }; }).filter(Boolean);
+  const modelLabel = out[0].label;
+  const critical = flags.find((f) => CRITICAL.has(f.name));
+  const overridden = modelLabel === "ham" && critical;
+  const label = overridden ? "smishing" : modelLabel;
   const [title, advice] = VERDICT[label];
 
   $("verdict").className = `verdict v-${label}`;
-  $("verdict").innerHTML = `${title} <span style="font-weight:400">(${Math.round(probs[label] * 100)}% confident)</span><small>${advice}</small>`;
+  $("verdict").innerHTML = overridden
+    ? `${title}<small>${advice}<br>The model alone rated this safe, but it matched the rule "${esc(critical.name)}", which legitimate messages never do.</small>`
+    : `${title} <span style="font-weight:400">(${Math.round(probs[label] * 100)}% confident)</span><small>${advice}</small>`;
   $("bars").innerHTML = ["smishing", "spam", "ham"].map((k) => `
     <div class="bar"><span>${k}</span>
       <div class="track"><div class="fill" style="width:${(probs[k] * 100).toFixed(1)}%;background:${COLOR[k]}"></div></div>
       <span>${(probs[k] * 100).toFixed(1)}%</span></div>`).join("");
 
-  const flags = RULES.map(([name, rx, why]) => { const m = text.match(rx); return m && { name, why, match: m[0] }; }).filter(Boolean);
   $("flagsTitle").textContent = `Warning signs found: ${flags.length}`;
   $("flags").innerHTML = flags.length
     ? flags.map((f) => `<div class="flag"><b>${esc(f.name)}</b><code>${esc(f.match)}</code><br><span>${esc(f.why)}</span></div>`).join("")

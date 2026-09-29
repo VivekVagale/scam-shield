@@ -3,7 +3,7 @@
 import streamlit as st
 
 from src.predict import available, predict_proba
-from src.redflags import find_flags
+from src.redflags import CRITICAL, combine, find_flags
 
 st.set_page_config(page_title="Scam Shield", page_icon="🛡️", layout="centered")
 
@@ -40,15 +40,21 @@ model = st.selectbox("Model", models, index=len(models) - 1,
 
 if msg.strip():
     probs = predict_proba([msg.strip()], model)[0]
-    label = max(probs, key=probs.get)
+    flags = find_flags(msg)
+    model_label = max(probs, key=probs.get)
+    label = combine(model_label, flags)
     title, kind, advice = VERDICT[label]
-    getattr(st, kind)(f"**{title}** ({probs[label]:.0%} confident)\n\n{advice}")
+    if label != model_label:
+        rule = next(f.name for f in flags if f.name in CRITICAL)
+        getattr(st, kind)(f"**{title}**\n\n{advice}\n\nThe model alone rated this safe, but it matched the rule "
+                          f"\"{rule}\", which legitimate messages never do.")
+    else:
+        getattr(st, kind)(f"**{title}** ({probs[label]:.0%} confident)\n\n{advice}")
 
     st.subheader("Model scores")
     for name in ["smishing", "spam", "ham"]:
         st.progress(probs[name], text=f"{name}: {probs[name]:.1%}")
 
-    flags = find_flags(msg)
     st.subheader(f"Warning signs found: {len(flags)}")
     if not flags:
         st.write("None of the common scam patterns matched.")

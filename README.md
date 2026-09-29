@@ -25,6 +25,7 @@ India set: 60 synthetic Indian-style messages (see [eval/README.md](eval/README.
 | TF-IDF + LR, + Indian augment | 0.915 | 130/144 | 1/726 | 0.769 | 28/35 | 5/25 |
 | DistilBERT | 0.906 | 139/144 | 4/726 | 0.720 | **35/35** | 11/25 |
 | **DistilBERT + Indian augment** | **0.925** | **140/144** | 3/726 | **0.832** | 32/35 | **2/25** |
+| DistilBERT + augment + critical rules | 0.925 | 140/144 | 3/726 | 0.847 | 33/35 | 2/25 |
 | same, int8 ONNX (the web demo) | 0.916 | 141/144 | 4/726 | | | |
 
 "Scams caught" counts spam + smishing flagged as either; "false alarms" are
@@ -44,8 +45,12 @@ legitimate messages flagged as either.
 ## What still fails
 
 - **Hinglish** ("Aapka bijli connection aaj raat kaat diya jayega…") gets through. The tokenizer is English-only.
-- **"Share the OTP to get your refund"** gets through. The augmented data taught
-  "OTP message = safe"; the red-flag rules still catch it in the app.
+- **"Share the OTP to get your refund"** fooled the model: the augmented data
+  taught it "OTP message = safe". Fix: two *critical* rules (asks you to share
+  an OTP/PIN, or sends a UPI pay link) override a "safe" verdict, because
+  legitimate messages never do either. On the 870-message test set this
+  changed 0 verdicts (no new false alarms). It fixes that India miss, but the
+  rule was written after seeing it, so that gain is not independent evidence.
 - Some real bank debit alerts ("…Not you? Call…") are still called spam.
 - The India set is synthetic and written by the same person as the augment
   templates, so its gains are optimistic. The next step is a set of **real**

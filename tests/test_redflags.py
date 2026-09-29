@@ -23,3 +23,11 @@ def test_private_number_is_flagged():
 
 def test_friend_message_has_no_flags():
     assert names("Bro where are you, canteen?") == set()
+
+
+def test_critical_rule_overrides_only_a_safe_verdict():
+    from src.redflags import combine
+    otp_ask = find_flags("Share the OTP received to process your refund")
+    assert combine("ham", otp_ask) == "smishing"
+    assert combine("spam", otp_ask) == "spam"
+    assert combine("ham", find_flags("Your order will arrive tonight")) == "ham"  # non-critical flag only
