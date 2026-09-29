@@ -42,6 +42,7 @@ def report(y_true, y_pred, title: str) -> dict:
             ).items() if k in LABELS
         },
         "confusion_matrix": {"labels": LABELS, "matrix": cm.tolist()},
+        "n_harmful": sum(t),
         "harmful_recall": round(harmful_recall, 4),
         "harmful_missed": missed,
         "false_alarms": false_alarms,
