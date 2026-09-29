@@ -1,0 +1,418 @@
+{
+  "baseline/test": {
+    "macro_f1": 0.9195,
+    "per_class": {
+      "ham": {
+        "precision": 0.9824,
+        "recall": 1.0,
+        "f1-score": 0.9911,
+        "support": 726.0
+      },
+      "spam": {
+        "precision": 0.9123,
+        "recall": 0.8,
+        "f1-score": 0.8525,
+        "support": 65.0
+      },
+      "smishing": {
+        "precision": 0.9459,
+        "recall": 0.8861,
+        "f1-score": 0.915,
+        "support": 79.0
+      }
+    },
+    "confusion_matrix": {
+      "labels": [
+        "ham",
+        "spam",
+        "smishing"
+      ],
+      "matrix": [
+        [
+          726,
+          0,
+          0
+        ],
+        [
+          9,
+          52,
+          4
+        ],
+        [
+          4,
+          5,
+          70
+        ]
+      ]
+    },
+    "n_harmful": 144,
+    "harmful_recall": 0.9097,
+    "harmful_missed": 13,
+    "false_alarms": 0,
+    "n_test": 870
+  },
+  "baseline_aug/test": {
+    "macro_f1": 0.9147,
+    "per_class": {
+      "ham": {
+        "precision": 0.9811,
+        "recall": 0.9986,
+        "f1-score": 0.9898,
+        "support": 726.0
+      },
+      "spam": {
+        "precision": 0.9123,
+        "recall": 0.8,
+        "f1-score": 0.8525,
+        "support": 65.0
+      },
+      "smishing": {
+        "precision": 0.9324,
+        "recall": 0.8734,
+        "f1-score": 0.902,
+        "support": 79.0
+      }
+    },
+    "confusion_matrix": {
+      "labels": [
+        "ham",
+        "spam",
+        "smishing"
+      ],
+      "matrix": [
+        [
+          725,
+          0,
+          1
+        ],
+        [
+          9,
+          52,
+          4
+        ],
+        [
+          5,
+          5,
+          69
+        ]
+      ]
+    },
+    "n_harmful": 144,
+    "harmful_recall": 0.9028,
+    "harmful_missed": 14,
+    "false_alarms": 1,
+    "n_test": 870
+  },
+  "distilbert/test": {
+    "macro_f1": 0.9056,
+    "per_class": {
+      "ham": {
+        "precision": 0.9931,
+        "recall": 0.9945,
+        "f1-score": 0.9938,
+        "support": 726.0
+      },
+      "spam": {
+        "precision": 0.7971,
+        "recall": 0.8462,
+        "f1-score": 0.8209,
+        "support": 65.0
+      },
+      "smishing": {
+        "precision": 0.9324,
+        "recall": 0.8734,
+        "f1-score": 0.902,
+        "support": 79.0
+      }
+    },
+    "confusion_matrix": {
+      "labels": [
+        "ham",
+        "spam",
+        "smishing"
+      ],
+      "matrix": [
+        [
+          722,
+          4,
+          0
+        ],
+        [
+          5,
+          55,
+          5
+        ],
+        [
+          0,
+          10,
+          69
+        ]
+      ]
+    },
+    "n_harmful": 144,
+    "harmful_recall": 0.9653,
+    "harmful_missed": 5,
+    "false_alarms": 4,
+    "n_test": 870
+  },
+  "distilbert_aug/test": {
+    "macro_f1": 0.9248,
+    "per_class": {
+      "ham": {
+        "precision": 0.9945,
+        "recall": 0.9959,
+        "f1-score": 0.9952,
+        "support": 726.0
+      },
+      "spam": {
+        "precision": 0.8382,
+        "recall": 0.8769,
+        "f1-score": 0.8571,
+        "support": 65.0
+      },
+      "smishing": {
+        "precision": 0.9467,
+        "recall": 0.8987,
+        "f1-score": 0.9221,
+        "support": 79.0
+      }
+    },
+    "confusion_matrix": {
+      "labels": [
+        "ham",
+        "spam",
+        "smishing"
+      ],
+      "matrix": [
+        [
+          723,
+          3,
+          0
+        ],
+        [
+          4,
+          57,
+          4
+        ],
+        [
+          0,
+          8,
+          71
+        ]
+      ]
+    },
+    "n_harmful": 144,
+    "harmful_recall": 0.9722,
+    "harmful_missed": 4,
+    "false_alarms": 3,
+    "n_test": 870
+  },
+  "baseline/india_synthetic": {
+    "macro_f1": 0.6946,
+    "per_class": {
+      "ham": {
+        "precision": 0.7273,
+        "recall": 0.64,
+        "f1-score": 0.6809,
+        "support": 25.0
+      },
+      "spam": {
+        "precision": 0.6429,
+        "recall": 0.9,
+        "f1-score": 0.75,
+        "support": 10.0
+      },
+      "smishing": {
+        "precision": 0.6667,
+        "recall": 0.64,
+        "f1-score": 0.6531,
+        "support": 25.0
+      }
+    },
+    "confusion_matrix": {
+      "labels": [
+        "ham",
+        "spam",
+        "smishing"
+      ],
+      "matrix": [
+        [
+          16,
+          1,
+          8
+        ],
+        [
+          1,
+          9,
+          0
+        ],
+        [
+          5,
+          4,
+          16
+        ]
+      ]
+    },
+    "n_harmful": 35,
+    "harmful_recall": 0.8286,
+    "harmful_missed": 6,
+    "false_alarms": 9,
+    "n_test": 60
+  },
+  "baseline_aug/india_synthetic": {
+    "macro_f1": 0.769,
+    "per_class": {
+      "ham": {
+        "precision": 0.7407,
+        "recall": 0.8,
+        "f1-score": 0.7692,
+        "support": 25.0
+      },
+      "spam": {
+        "precision": 0.875,
+        "recall": 0.7,
+        "f1-score": 0.7778,
+        "support": 10.0
+      },
+      "smishing": {
+        "precision": 0.76,
+        "recall": 0.76,
+        "f1-score": 0.76,
+        "support": 25.0
+      }
+    },
+    "confusion_matrix": {
+      "labels": [
+        "ham",
+        "spam",
+        "smishing"
+      ],
+      "matrix": [
+        [
+          20,
+          0,
+          5
+        ],
+        [
+          2,
+          7,
+          1
+        ],
+        [
+          5,
+          1,
+          19
+        ]
+      ]
+    },
+    "n_harmful": 35,
+    "harmful_recall": 0.8,
+    "harmful_missed": 7,
+    "false_alarms": 5,
+    "n_test": 60
+  },
+  "distilbert/india_synthetic": {
+    "macro_f1": 0.7196,
+    "per_class": {
+      "ham": {
+        "precision": 1.0,
+        "recall": 0.56,
+        "f1-score": 0.7179,
+        "support": 25.0
+      },
+      "spam": {
+        "precision": 0.4,
+        "recall": 1.0,
+        "f1-score": 0.5714,
+        "support": 10.0
+      },
+      "smishing": {
+        "precision": 0.9524,
+        "recall": 0.8,
+        "f1-score": 0.8696,
+        "support": 25.0
+      }
+    },
+    "confusion_matrix": {
+      "labels": [
+        "ham",
+        "spam",
+        "smishing"
+      ],
+      "matrix": [
+        [
+          14,
+          10,
+          1
+        ],
+        [
+          0,
+          10,
+          0
+        ],
+        [
+          0,
+          5,
+          20
+        ]
+      ]
+    },
+    "n_harmful": 35,
+    "harmful_recall": 1.0,
+    "harmful_missed": 0,
+    "false_alarms": 11,
+    "n_test": 60
+  },
+  "distilbert_aug/india_synthetic": {
+    "macro_f1": 0.8321,
+    "per_class": {
+      "ham": {
+        "precision": 0.8846,
+        "recall": 0.92,
+        "f1-score": 0.902,
+        "support": 25.0
+      },
+      "spam": {
+        "precision": 0.6429,
+        "recall": 0.9,
+        "f1-score": 0.75,
+        "support": 10.0
+      },
+      "smishing": {
+        "precision": 0.95,
+        "recall": 0.76,
+        "f1-score": 0.8444,
+        "support": 25.0
+      }
+    },
+    "confusion_matrix": {
+      "labels": [
+        "ham",
+        "spam",
+        "smishing"
+      ],
+      "matrix": [
+        [
+          23,
+          1,
+          1
+        ],
+        [
+          1,
+          9,
+          0
+        ],
+        [
+          2,
+          4,
+          19
+        ]
+      ]
+    },
+    "n_harmful": 35,
+    "harmful_recall": 0.9143,
+    "harmful_missed": 3,
+    "false_alarms": 2,
+    "n_test": 60
+  }
+}

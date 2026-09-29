@@ -79,6 +79,15 @@ def load_split(name: str) -> pd.DataFrame:
     return pd.read_csv(SPLIT_DIR / f"{name}.csv", encoding="utf-8")
 
 
+def load_train(augment: bool = False) -> pd.DataFrame:
+    """Train split, optionally plus the synthetic Indian messages from src.augment."""
+    train = load_split("train")
+    if not augment:
+        return train
+    extra = pd.read_csv(ROOT / "data" / "augment" / "india_train.csv", encoding="utf-8")
+    return pd.concat([train, extra], ignore_index=True)
+
+
 def main() -> None:
     df = load_clean()
     SPLIT_DIR.mkdir(parents=True, exist_ok=True)

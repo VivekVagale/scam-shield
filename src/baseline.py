@@ -6,6 +6,7 @@ Why this baseline: it trains in seconds on a CPU, every weight can be
 inspected, and any fancier model later has to beat this number to be worth it.
 """
 
+import argparse
 import json
 from pathlib import Path
 
@@ -14,11 +15,10 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import FeatureUnion, Pipeline
 
-from .data import ROOT, load_split
+from .data import ROOT, load_split, load_train
 from .metrics import report
 
 MODEL_PATH = ROOT / "models" / "baseline.joblib"
-RESULTS_PATH = ROOT / "results" / "baseline.json"
 
 
 def build() -> Pipeline:
@@ -34,19 +34,24 @@ def build() -> Pipeline:
     return Pipeline([("features", features), ("clf", clf)])
 
 
-def main() -> None:
-    train, test = load_split("train"), load_split("test")
+def main(augment: bool = False) -> None:
+    name = "baseline_aug" if augment else "baseline"
+    model_path = ROOT / "models" / f"{name}.joblib"
+    results_path = ROOT / "results" / f"{name}.json"
+    train, test = load_train(augment), load_split("test")
     model = build().fit(train["text"], train["label"])
 
     pred = model.predict(test["text"])
-    results = report(test["label"], pred, title="Baseline: TF-IDF + logistic regression (test set)")
+    results = report(test["label"], pred, title=f"{name}: TF-IDF + logistic regression (test set)")
 
-    MODEL_PATH.parent.mkdir(exist_ok=True)
-    RESULTS_PATH.parent.mkdir(exist_ok=True)
-    joblib.dump(model, MODEL_PATH)
-    RESULTS_PATH.write_text(json.dumps(results, indent=2))
-    print(f"\nsaved {MODEL_PATH.relative_to(ROOT)} and {RESULTS_PATH.relative_to(ROOT)}")
+    model_path.parent.mkdir(exist_ok=True)
+    results_path.parent.mkdir(exist_ok=True)
+    joblib.dump(model, model_path)
+    results_path.write_text(json.dumps(results, indent=2))
+    print(f"\nsaved {model_path.relative_to(ROOT)} and {results_path.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":
-    main()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--augment", action="store_true", help="add data/augment/india_train.csv to training")
+    main(ap.parse_args().augment)

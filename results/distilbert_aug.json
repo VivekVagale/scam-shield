@@ -1,0 +1,54 @@
+{
+  "macro_f1": 0.9248,
+  "per_class": {
+    "ham": {
+      "precision": 0.9945,
+      "recall": 0.9959,
+      "f1-score": 0.9952,
+      "support": 726.0
+    },
+    "spam": {
+      "precision": 0.8382,
+      "recall": 0.8769,
+      "f1-score": 0.8571,
+      "support": 65.0
+    },
+    "smishing": {
+      "precision": 0.9467,
+      "recall": 0.8987,
+      "f1-score": 0.9221,
+      "support": 79.0
+    }
+  },
+  "confusion_matrix": {
+    "labels": [
+      "ham",
+      "spam",
+      "smishing"
+    ],
+    "matrix": [
+      [
+        723,
+        3,
+        0
+      ],
+      [
+        4,
+        57,
+        4
+      ],
+      [
+        0,
+        8,
+        71
+      ]
+    ]
+  },
+  "n_harmful": 144,
+  "harmful_recall": 0.9722,
+  "harmful_missed": 4,
+  "false_alarms": 3,
+  "n_test": 870,
+  "best_epoch": 3,
+  "val_macro_f1": 0.928
+}
