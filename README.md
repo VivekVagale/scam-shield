@@ -5,6 +5,10 @@ messages into **smishing** (phishing by SMS: fake KYC, bill, courier, prize,
 job offers), **spam** (unwanted promotion) or **ham** (legitimate), and plain
 rules point out the warning signs so the user learns *why*.
 
+**Live demo: https://vivekvagale.github.io/scam-shield/** : the model runs
+inside your browser (ONNX, 67 MB, downloaded once), so messages never leave
+your device.
+
 India loses thousands of crores a year to SMS and call fraud, and the messages
 are written to look like the bank alerts people get every day. The hard part
 is not catching scams; it is catching them **without** flagging real OTPs and
@@ -21,6 +25,7 @@ India set: 60 synthetic Indian-style messages (see [eval/README.md](eval/README.
 | TF-IDF + LR, + Indian augment | 0.915 | 130/144 | 1/726 | 0.769 | 28/35 | 5/25 |
 | DistilBERT | 0.906 | 139/144 | 4/726 | 0.720 | **35/35** | 11/25 |
 | **DistilBERT + Indian augment** | **0.925** | **140/144** | 3/726 | **0.832** | 32/35 | **2/25** |
+| same, int8 ONNX (the web demo) | 0.916 | 141/144 | 4/726 | | | |
 
 "Scams caught" counts spam + smishing flagged as either; "false alarms" are
 legitimate messages flagged as either.
@@ -59,7 +64,8 @@ python -m src.augment              # generate the Indian training messages
 python -m src.baseline --augment   # seconds, CPU
 python -m src.finetune --augment   # ~2 min on an RTX 4060
 python -m src.evaluate             # every model on every test set
-streamlit run app.py               # the demo
+streamlit run app.py               # the demo (Python)
+python -m src.export_onnx          # int8 ONNX for the browser demo in web/
 python -m pytest
 ```
 
@@ -87,6 +93,9 @@ flowchart LR
 - `src/augment.py` template generator for Indian transactional ham and smishing.
 - `src/evaluate.py` scores every trained model on the test split and every CSV in `eval/`.
 - `src/redflags.py` seven regex rules, each with a one-line explanation for the user.
+- `src/export_onnx.py` exports to ONNX and quantizes weights to 8-bit integers:
+  268 MB to 67 MB, and it agrees with the full model on 99.5% of test messages.
+- `web/index.html` the browser demo: transformers.js runs the ONNX model client-side; the red-flag rules are ported to JavaScript.
 
 More detail and the reasons behind each choice: [docs/INTERVIEW_NOTES.md](docs/INTERVIEW_NOTES.md).
 

@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scam Shield</title>
+<meta name="description" content="Paste an SMS and find out if it is a scam. A fine-tuned DistilBERT model that runs entirely in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #16181d; --muted: #5b6270; --border: #dfe3ea;
+    --accent: #4f46e5; --scam: #c62828; --scam-bg: #fdecec; --spam: #a15c00; --spam-bg: #fff4e0;
+    --ham: #1b7a3d; --ham-bg: #e8f6ed; --bar: #e9ecf2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --card: #171a21; --text: #e8eaef; --muted: #9aa3b2; --border: #2a2f3a;
+      --accent: #8b85ff; --scam: #ff6b6b; --scam-bg: #3a1618; --spam: #ffb347; --spam-bg: #33260f;
+      --ham: #5fd38a; --ham-bg: #11291b; --bar: #252a35;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { font-size: 1.9rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  button { font: inherit; cursor: pointer; border-radius: 999px; border: 1px solid var(--border);
+           background: var(--card); color: var(--text); padding: 6px 14px; font-size: .9rem; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); padding: 10px 22px; font-weight: 600; }
+  button:disabled { opacity: .5; cursor: default; }
+  textarea { width: 100%; min-height: 120px; resize: vertical; font: inherit; color: var(--text);
+             background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+  #status { color: var(--muted); font-size: .9rem; }
+  .verdict { border-radius: 12px; padding: 14px 16px; font-weight: 600; font-size: 1.1rem; }
+  .verdict small { display: block; font-weight: 400; font-size: .95rem; margin-top: 4px; }
+  .v-smishing { background: var(--scam-bg); color: var(--scam); }
+  .v-spam { background: var(--spam-bg); color: var(--spam); }
+  .v-ham { background: var(--ham-bg); color: var(--ham); }
+  .bars { margin-top: 14px; display: grid; gap: 8px; }
+  .bar { display: grid; grid-template-columns: 80px 1fr 56px; align-items: center; gap: 10px; font-size: .9rem; }
+  .track { height: 10px; background: var(--bar); border-radius: 99px; overflow: hidden; }
+  .fill { height: 100%; border-radius: 99px; transition: width .3s; }
+  .flag { border-top: 1px solid var(--border); padding: 10px 0; }
+  .flag:first-child { border-top: none; }
+  .flag b { display: block; }
+  .flag code { font-size: .85rem; background: var(--bar); padding: 1px 6px; border-radius: 6px; word-break: break-all; }
+  .flag span { color: var(--muted); font-size: .92rem; }
+  h2 { font-size: 1.05rem; margin: 0 0 8px; }
+  .note { color: var(--muted); font-size: .88rem; }
+  a { color: var(--accent); }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🛡️ Scam Shield</h1>
+  <p class="sub">Paste an SMS. A fine-tuned DistilBERT model says whether it is a <b>scam</b>, <b>spam</b> or <b>safe</b>,
+    and simple rules point out the warning signs. The model runs <b>inside your browser</b>: your message is never sent anywhere.</p>
+
+  <div class="card">
+    <div class="examples" id="examples"></div>
+    <textarea id="msg" placeholder="Paste the SMS here"></textarea>
+    <div class="row">
+      <button class="primary" id="check" disabled>Check message</button>
+      <span id="status">Loading model (67 MB, once)...</span>
+    </div>
+  </div>
+
+  <div id="result" class="hidden">
+    <div class="card">
+      <div id="verdict" class="verdict"></div>
+      <div class="bars" id="bars"></div>
+    </div>
+    <div class="card">
+      <h2 id="flagsTitle"></h2>
+      <div id="flags"></div>
+      <p id="mismatch" class="note hidden">The model thinks this is safe, but it has warning signs. Check with the company
+        through its official app or helpline before acting.</p>
+    </div>
+  </div>
+
+  <p class="note">Test set: catches 141 of 144 scam and spam messages with 4 false alarms on 726 real ones.
+    It still struggles with Hinglish and some real Indian bank alerts. A student project, not a guarantee:
+    report suspected fraud at <a href="https://cybercrime.gov.in" rel="noopener">cybercrime.gov.in</a> or call <b>1930</b>.
+    <br>Code and results: <a href="https://github.com/VivekVagale/scam-shield">github.com/VivekVagale/scam-shield</a> · by Vivek Vagale</p>
+</main>
+
+<script type="module">
+import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3";
+
+env.allowRemoteModels = false;
+env.allowLocalModels = true;
+env.localModelPath = "./models/";
+
+const EXAMPLES = {
+  "KYC scam": "Dear Customer, your account will be blocked today. Update your KYC now: http://bank-kyc-verify.top/login",
+  "Electricity scam": "Your power will be disconnected tonight at 9.30 PM as last month bill is not updated. Call officer 9876512345",
+  "Job scam": "Earn Rs 5000 daily from home by rating hotels on Google. Message HR on Telegram t.me/hr_asha21 to start today",
+  "OTP (real)": "482913 is your OTP to log in to your Axis Bank account. Valid for 5 minutes. Do not share it with anyone.",
+  "Friend": "Bro reached college? Bring my charger pls",
+};
+
+// Same rules as src/redflags.py
+const RULES = [
+  ["Asks for OTP / PIN", /\b(share|send|tell|give)\b[^.]{0,30}?\b(otp|pin|cvv|password)\b/i,
+   "No bank, app or company ever asks you to share an OTP, PIN or CVV."],
+  ["UPI collect / pay link", /upi:\/\/\S+/i,
+   "A UPI link sends money FROM you. You never need to pay to receive money."],
+  ["Short or unofficial link", /\b(bit\.ly|tinyurl\.com|cutt\.ly|t\.me|wa\.me|is\.gd|smsg\.io)\/\S+|https?:\/\/[^\s/]+\.(top|site|online|info|xyz|co|in)\/?\S*/i,
+   "Shortened or look-alike links hide where they go. Official links use the company's own domain."],
+  ["Threat or deadline", /\b(blocked?|suspend(ed)?|deactivat\w*|disconnect\w*|expire[sd]?|lapse|arrest\w*|fir|legal action|within \d+ ?(hrs?|hours|minutes)|tonight|immediately|urgent)\b/i,
+   "Scams create panic so you act before you think."],
+  ["Prize, refund or easy money", /\b(won|winner|lottery|lucky draw|cashback|refund|reward points?|daily income|earn rs|part time job|work from home)\b/i,
+   "Unexpected money is the most common bait."],
+  ["Asks you to call or chat a private number", /\b(call|contact|whatsapp|telegram)\b[^.]{0,40}?\b[6-9]\d{9}\b/i,
+   "Real companies use listed helplines, not personal 10-digit mobile numbers."],
+  ["Asks for KYC / PAN / Aadhaar update", /\b(kyc|pan|aadhaar)\b[^.]{0,40}?\b(update|link|verify|pending|expired?)\b|\b(update|link|verify)\b[^.]{0,30}?\b(kyc|pan|aadhaar)\b/i,
+   "KYC is done in the bank's app or branch, never through an SMS link."],
+];
+
+const VERDICT = {
+  smishing: ["🚨 Likely a SCAM", "Do not click links, call numbers or share any code from this message."],
+  spam: ["📢 Promotional spam", "Probably an ad. Annoying, not usually dangerous."],
+  ham: ["✅ Looks legitimate", "Nothing scam-like found. Still, never share an OTP."],
+};
+const COLOR = { smishing: "var(--scam)", spam: "var(--spam)", ham: "var(--ham)" };
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+for (const [label, text] of Object.entries(EXAMPLES)) {
+  const b = document.createElement("button");
+  b.textContent = label;
+  b.onclick = () => { $("msg").value = text; if (!$("check").disabled) run(); };
+  $("examples").append(b);
+}
+
+let clf;
+try {
+  let loaded = 0, total = 0;
+  clf = await pipeline("text-classification", "scam-shield", {
+    dtype: "q8",
+    progress_callback: (p) => {
+      if (p.status === "progress" && p.file.endsWith(".onnx")) {
+        loaded = p.loaded; total = p.total;
+        $("status").textContent = `Loading model... ${Math.round((100 * loaded) / total)}%`;
+      }
+    },
+  });
+  $("status").textContent = "Model ready. Runs offline from here.";
+  $("check").disabled = false;
+} catch (e) {
+  $("status").textContent = "Could not load the model: " + e.message;
+}
+
+async function run() {
+  const text = $("msg").value.trim();
+  if (!text) return;
+  $("check").disabled = true;
+  const out = await clf(text, { top_k: null });
+  $("check").disabled = false;
+  const probs = Object.fromEntries(out.map((o) => [o.label, o.score]));
+  const label = out[0].label;
+  const [title, advice] = VERDICT[label];
+
+  $("verdict").className = `verdict v-${label}`;
+  $("verdict").innerHTML = `${title} <span style="font-weight:400">(${Math.round(probs[label] * 100)}% confident)</span><small>${advice}</small>`;
+  $("bars").innerHTML = ["smishing", "spam", "ham"].map((k) => `
+    <div class="bar"><span>${k}</span>
+      <div class="track"><div class="fill" style="width:${(probs[k] * 100).toFixed(1)}%;background:${COLOR[k]}"></div></div>
+      <span>${(probs[k] * 100).toFixed(1)}%</span></div>`).join("");
+
+  const flags = RULES.map(([name, rx, why]) => { const m = text.match(rx); return m && { name, why, match: m[0] }; }).filter(Boolean);
+  $("flagsTitle").textContent = `Warning signs found: ${flags.length}`;
+  $("flags").innerHTML = flags.length
+    ? flags.map((f) => `<div class="flag"><b>${esc(f.name)}</b><code>${esc(f.match)}</code><br><span>${esc(f.why)}</span></div>`).join("")
+    : `<p class="note">None of the common scam patterns matched.</p>`;
+  $("mismatch").classList.toggle("hidden", !(label === "ham" && flags.length));
+  $("result").classList.remove("hidden");
+}
+
+$("check").onclick = run;
+$("msg").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run(); });
+</script>
+</body>
+</html>

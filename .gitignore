@@ -9,3 +9,6 @@ data/splits/
 
 # trained models are rebuilt from code
 models/
+
+# built by `python -m src.export_onnx`; published on the gh-pages branch
+web/models/
