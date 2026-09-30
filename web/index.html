@@ -4,91 +4,168 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Scam Shield</title>
-<meta name="description" content="Paste an SMS and find out if it is a scam. A fine-tuned DistilBERT model that runs entirely in your browser.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+<meta name="description" content="Paste an SMS and find out if it is a scam. A fine-tuned DistilBERT model that runs entirely in your browser, with the warning signs highlighted.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2338bdf8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f6f7f9; --card: #ffffff; --text: #16181d; --muted: #5b6270; --border: #dfe3ea;
-    --accent: #0369a1; --on-accent: #ffffff; --scam: #c62828; --scam-bg: #fdecec; --spam: #a15c00; --spam-bg: #fff4e0;
-    --ham: #1b7a3d; --ham-bg: #e8f6ed; --bar: #e9ecf2;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0f1115; --card: #171a21; --text: #e8eaef; --muted: #9aa3b2; --border: #2a2f3a;
-      --accent: #38bdf8; --on-accent: #0b1220; --scam: #ff6b6b; --scam-bg: #3a1618; --spam: #ffb347; --spam-bg: #33260f;
-      --ham: #5fd38a; --ham-bg: #11291b; --bar: #252a35;
-    }
+    --bg: #05070c; --glass: rgba(17, 24, 39, .62); --glass-2: rgba(30, 41, 59, .45); --line: rgba(255, 255, 255, .08);
+    --text: #e6ebf2; --muted: #94a3b8; --accent: #38bdf8; --on-accent: #04111d;
+    --scam: #f87171; --spam: #fbbf24; --ham: #34d399;
+    --display: "Space Grotesk", system-ui, sans-serif; --body: "DM Sans", system-ui, sans-serif;
+    --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-         font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  main { max-width: 720px; margin: 0 auto; padding: 32px 16px 48px; }
-  h1 { font-size: 1.9rem; margin: 0 0 4px; }
-  .sub { color: var(--muted); margin: 0 0 24px; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
+  html { color-scheme: dark; }
+  body { margin: 0; min-height: 100vh; color: var(--text); font: 16px/1.6 var(--body);
+    background: radial-gradient(900px 500px at 12% -8%, rgba(56, 189, 248, .16), transparent 60%),
+                radial-gradient(700px 500px at 100% 30%, rgba(99, 102, 241, .12), transparent 60%),
+                linear-gradient(#0a0e17, var(--bg) 40%); background-attachment: fixed; }
+  main { max-width: 1080px; margin: 0 auto; padding: 28px 16px 48px; }
+  svg.i { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+  header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+  .logo { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
+    background: linear-gradient(145deg, rgba(56, 189, 248, .25), rgba(56, 189, 248, .05)); border: 1px solid rgba(56, 189, 248, .35);
+    box-shadow: 0 0 24px rgba(56, 189, 248, .25); color: var(--accent); }
+  .logo svg.i { width: 24px; height: 24px; }
+  h1 { font: 700 1.9rem/1 var(--display); letter-spacing: -.02em; margin: 0; }
+  .spacer { flex: 1; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; font-size: .82rem;
+    border: 1px solid var(--line); background: var(--glass); color: var(--muted); }
+  .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .pill.ready .dot { background: var(--ham); box-shadow: 0 0 10px var(--ham); }
+  .sub { color: var(--muted); max-width: 760px; margin: 6px 0 24px; }
+  .sub b { color: var(--text); font-weight: 500; }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .card { background: var(--glass); border: 1px solid var(--line); border-radius: 18px; padding: 18px;
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: 0 20px 50px rgba(0, 0, 0, .35); }
+  .card + .card { margin-top: 16px; }
+  .label { font: 600 .74rem var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
+    display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
+
   .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-  button { font: inherit; cursor: pointer; border-radius: 999px; border: 1px solid var(--border);
-           background: var(--card); color: var(--text); padding: 6px 14px; font-size: .9rem; }
-  button:hover { border-color: var(--accent); }
-  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); padding: 10px 22px; font-weight: 600; }
-  button:disabled { opacity: .5; cursor: default; }
-  textarea { width: 100%; min-height: 120px; resize: vertical; font: inherit; color: var(--text);
-             background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
-  textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button { font: 500 .9rem var(--body); cursor: pointer; color: var(--text); background: var(--glass-2);
+    border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; min-height: 40px;
+    transition: border-color .15s, background .15s; display: inline-flex; align-items: center; gap: 8px; }
+  button:hover:not(:disabled) { border-color: rgba(56, 189, 248, .55); }
+  button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 700; border-radius: 12px; padding: 11px 22px; }
+  button.primary:hover:not(:disabled) { background: #7dd3fc; }
+  textarea { width: 100%; min-height: 150px; resize: vertical; font: 1rem/1.55 var(--body); color: var(--text);
+    background: rgba(2, 6, 14, .6); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
   .row { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
-  #status { color: var(--muted); font-size: .9rem; }
-  .verdict { border-radius: 12px; padding: 14px 16px; font-weight: 600; font-size: 1.1rem; }
-  .verdict small { display: block; font-weight: 400; font-size: .95rem; margin-top: 4px; }
-  .v-smishing { background: var(--scam-bg); color: var(--scam); }
-  .v-spam { background: var(--spam-bg); color: var(--spam); }
-  .v-ham { background: var(--ham-bg); color: var(--ham); }
-  .bars { margin-top: 14px; display: grid; gap: 8px; }
-  .bar { display: grid; grid-template-columns: 80px 1fr 56px; align-items: center; gap: 10px; font-size: .9rem; }
-  .track { height: 10px; background: var(--bar); border-radius: 99px; overflow: hidden; }
-  .fill { height: 100%; border-radius: 99px; transition: width .3s; }
-  .flag { border-top: 1px solid var(--border); padding: 10px 0; }
-  .flag:first-child { border-top: none; }
-  .flag b { display: block; }
-  .flag code { font-size: .85rem; background: var(--bar); padding: 1px 6px; border-radius: 6px; word-break: break-all; }
-  .flag span { color: var(--muted); font-size: .92rem; }
-  h2 { font-size: 1.05rem; margin: 0 0 8px; }
-  .note { color: var(--muted); font-size: .88rem; }
+  #status { color: var(--muted); font-size: .88rem; }
+
+  .verdict { display: flex; gap: 16px; align-items: center; border-radius: 16px; padding: 16px; border: 1px solid; }
+  .verdict .shield { width: 64px; height: 64px; flex: none; }
+  .verdict h2 { font: 700 1.45rem/1.2 var(--display); margin: 0 0 4px; }
+  .verdict p { margin: 0; color: var(--text); opacity: .85; font-size: .95rem; }
+  .v-smishing { color: var(--scam); border-color: rgba(248, 113, 113, .45); background: rgba(248, 113, 113, .08); box-shadow: 0 0 40px rgba(248, 113, 113, .12) inset; }
+  .v-spam { color: var(--spam); border-color: rgba(251, 191, 36, .45); background: rgba(251, 191, 36, .07); }
+  .v-ham { color: var(--ham); border-color: rgba(52, 211, 153, .45); background: rgba(52, 211, 153, .07); }
+  .override { margin-top: 10px; font-size: .88rem; color: var(--text); opacity: .9; }
+  .bars { margin-top: 16px; display: grid; gap: 10px; }
+  .bar { display: grid; grid-template-columns: 78px 1fr 58px; align-items: center; gap: 10px; font-size: .88rem; }
+  .bar span:first-child { color: var(--muted); text-transform: capitalize; }
+  .bar span:last-child { text-align: right; font-family: var(--mono); font-size: .82rem; }
+  .track { height: 8px; background: rgba(148, 163, 184, .15); border-radius: 99px; overflow: hidden; }
+  .fill { height: 100%; border-radius: 99px; transition: width .35s ease; }
+
+  .bubble { background: #1f2937; border: 1px solid var(--line); border-radius: 18px 18px 18px 6px; padding: 12px 14px;
+    font-size: .98rem; line-height: 1.6; word-break: break-word; }
+  .bubble .from { font-size: .75rem; color: var(--muted); margin-bottom: 4px; }
+  mark { background: rgba(248, 113, 113, .18); color: #fecaca; border-bottom: 2px solid var(--scam); border-radius: 3px; padding: 0 2px; }
+  mark sup { font: 700 .62rem var(--mono); color: var(--scam); margin-left: 2px; }
+  .flags { margin-top: 14px; display: grid; gap: 10px; }
+  .flag { display: grid; grid-template-columns: 26px 1fr; gap: 10px; align-items: start; }
+  .flag .n { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; font: 700 .75rem var(--mono);
+    background: rgba(248, 113, 113, .15); color: var(--scam); border: 1px solid rgba(248, 113, 113, .35); }
+  .flag b { display: block; font-weight: 600; }
+  .flag.critical b::after { content: "can override the model"; margin-left: 8px; font: 600 .66rem var(--display);
+    letter-spacing: .08em; text-transform: uppercase; color: var(--scam); border: 1px solid rgba(248, 113, 113, .4); padding: 1px 6px; border-radius: 5px; }
+  .flag span { color: var(--muted); font-size: .9rem; }
+  .none { color: var(--muted); font-size: .92rem; display: flex; gap: 8px; align-items: center; }
+
+  .empty { color: var(--muted); display: grid; place-items: center; text-align: center; min-height: 220px; gap: 10px; }
+  .empty svg.i { width: 44px; height: 44px; color: rgba(56, 189, 248, .6); }
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+  .stat { border: 1px solid var(--line); border-radius: 14px; padding: 12px; background: var(--glass); }
+  .stat b { display: block; font: 700 1.3rem var(--display); }
+  .stat span { color: var(--muted); font-size: .8rem; }
+  @media (max-width: 520px) { .stats { grid-template-columns: 1fr; } }
+  footer { color: var(--muted); font-size: .86rem; margin-top: 20px; }
   a { color: var(--accent); }
-  .hidden { display: none; }
+  .hidden { display: none !important; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+  <symbol id="i-shield-x" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m14.5 9.5-5 5M9.5 9.5l5 5"/></symbol>
+  <symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-megaphone" viewBox="0 0 24 24"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-msg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+</svg>
+
 <main>
-  <h1>🛡️ Scam Shield</h1>
-  <p class="sub">Paste an SMS. A fine-tuned DistilBERT model says whether it is a <b>scam</b>, <b>spam</b> or <b>safe</b>,
-    and simple rules point out the warning signs. The model runs <b>inside your browser</b>: your message is never sent anywhere.</p>
+  <header>
+    <div class="logo"><svg class="i"><use href="#i-shield"/></svg></div>
+    <h1>Scam Shield</h1>
+    <div class="spacer"></div>
+    <span class="pill"><svg class="i"><use href="#i-lock"/></svg>Runs on your device</span>
+    <span class="pill" id="pill"><span class="dot"></span><span id="status">Loading model (67 MB, once)…</span></span>
+  </header>
+  <p class="sub">Paste an SMS. A fine-tuned <b>DistilBERT</b> model decides whether it is a <b>scam</b>, <b>spam</b> or
+    <b>safe</b>, and the warning signs are highlighted right in the message. The model runs in your browser: nothing you paste is sent anywhere.</p>
 
-  <div class="card">
-    <div class="examples" id="examples"></div>
-    <textarea id="msg" placeholder="Paste the SMS here"></textarea>
-    <div class="row">
-      <button class="primary" id="check" disabled>Check message</button>
-      <span id="status">Loading model (67 MB, once)...</span>
-    </div>
+  <div class="grid">
+    <section class="card">
+      <div class="label"><svg class="i"><use href="#i-msg"/></svg>Message</div>
+      <div class="examples" id="examples"></div>
+      <textarea id="msg" placeholder="Paste the SMS here" aria-label="SMS message to check"></textarea>
+      <div class="row"><button class="primary" id="check" disabled><svg class="i"><use href="#i-scan"/></svg>Scan message</button>
+        <span id="hint" style="color:var(--muted);font-size:.82rem">Ctrl + Enter</span></div>
+      <div class="stats">
+        <div class="stat"><b>141 / 144</b><span>test scams caught</span></div>
+        <div class="stat"><b>4 / 726</b><span>false alarms on real SMS</span></div>
+        <div class="stat"><b>67 MB</b><span>model, in your browser</span></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="card" id="placeholder">
+        <div class="empty"><svg class="i"><use href="#i-shield"/></svg><span>Scan a message, or try one of the examples.</span></div>
+      </div>
+      <div id="result" class="hidden">
+        <div class="card">
+          <div class="label">Verdict</div>
+          <div id="verdict" class="verdict" aria-live="polite"></div>
+          <div class="bars" id="bars"></div>
+        </div>
+        <div class="card">
+          <div class="label"><svg class="i"><use href="#i-alert"/></svg><span id="flagsTitle"></span></div>
+          <div class="bubble"><div class="from">Scanned message</div><div id="scanned"></div></div>
+          <div class="flags" id="flags"></div>
+          <p id="mismatch" class="none hidden" style="margin-top:12px"><svg class="i"><use href="#i-alert"/></svg>
+            The model thinks this is safe, but it has warning signs. Check with the company through its official app or helpline.</p>
+        </div>
+      </div>
+    </section>
   </div>
 
-  <div id="result" class="hidden">
-    <div class="card">
-      <div id="verdict" class="verdict"></div>
-      <div class="bars" id="bars"></div>
-    </div>
-    <div class="card">
-      <h2 id="flagsTitle"></h2>
-      <div id="flags"></div>
-      <p id="mismatch" class="note hidden">The model thinks this is safe, but it has warning signs. Check with the company
-        through its official app or helpline before acting.</p>
-    </div>
-  </div>
-
-  <p class="note">Test set: catches 141 of 144 scam and spam messages with 4 false alarms on 726 real ones.
-    It still struggles with Hinglish and some real Indian bank alerts. A student project, not a guarantee:
-    report suspected fraud at <a href="https://cybercrime.gov.in" rel="noopener">cybercrime.gov.in</a> or call <b>1930</b>.
-    <br>Code and results: <a href="https://github.com/VivekVagale/scam-shield">github.com/VivekVagale/scam-shield</a> · by Vivek Vagale</p>
+  <footer>Test set: 870 held-out messages. It still struggles with Hinglish and some real Indian bank alerts.
+    A student project, not a guarantee: report suspected fraud at <a href="https://cybercrime.gov.in" rel="noopener">cybercrime.gov.in</a> or call <b>1930</b>.
+    <br>Code and results: <a href="https://github.com/VivekVagale/scam-shield">github.com/VivekVagale/scam-shield</a> · by Vivek Vagale</footer>
 </main>
 
 <script type="module">
@@ -123,15 +200,15 @@ const RULES = [
   ["Asks for KYC / PAN / Aadhaar update", /\b(kyc|pan|aadhaar)\b[^.]{0,40}?\b(update|link|verify|pending|expired?)\b|\b(update|link|verify)\b[^.]{0,30}?\b(kyc|pan|aadhaar)\b/i,
    "KYC is done in the bank's app or branch, never through an SMS link."],
 ];
-
-const VERDICT = {
-  smishing: ["🚨 Likely a SCAM", "Do not click links, call numbers or share any code from this message."],
-  spam: ["📢 Promotional spam", "Probably an ad. Annoying, not usually dangerous."],
-  ham: ["✅ Looks legitimate", "Nothing scam-like found. Still, never share an OTP."],
-};
-const COLOR = { smishing: "var(--scam)", spam: "var(--spam)", ham: "var(--ham)" };
 // Rules precise enough to override a "safe" verdict (same as CRITICAL in src/redflags.py)
 const CRITICAL = new Set(["Asks for OTP / PIN", "UPI collect / pay link"]);
+
+const VERDICT = {
+  smishing: ["Likely a scam", "Do not click links, call numbers or share any code from this message.", "i-shield-x"],
+  spam: ["Promotional spam", "Probably an ad. Annoying, not usually dangerous.", "i-megaphone"],
+  ham: ["Looks legitimate", "Nothing scam-like found. Still, never share an OTP.", "i-shield-check"],
+};
+const COLOR = { smishing: "var(--scam)", spam: "var(--spam)", ham: "var(--ham)" };
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -145,20 +222,31 @@ for (const [label, text] of Object.entries(EXAMPLES)) {
 
 let clf;
 try {
-  let loaded = 0, total = 0;
   clf = await pipeline("text-classification", "scam-shield", {
     dtype: "q8",
     progress_callback: (p) => {
       if (p.status === "progress" && p.file.endsWith(".onnx")) {
-        loaded = p.loaded; total = p.total;
-        $("status").textContent = `Loading model... ${Math.round((100 * loaded) / total)}%`;
+        $("status").textContent = `Loading model… ${Math.round((100 * p.loaded) / p.total)}%`;
       }
     },
   });
-  $("status").textContent = "Model ready. Runs offline from here.";
+  $("status").textContent = "Model ready";
+  $("pill").classList.add("ready");
   $("check").disabled = false;
 } catch (e) {
   $("status").textContent = "Could not load the model: " + e.message;
+}
+
+// the message with each rule's match wrapped in <mark>, numbered like the list below it
+function highlight(text, flags) {
+  const spans = flags.map((f, i) => ({ ...f, n: i + 1 })).filter((f) => f.index >= 0).sort((a, b) => a.index - b.index);
+  let out = "", pos = 0;
+  for (const f of spans) {
+    if (f.index < pos) continue;   // overlaps an earlier highlight: keep the first
+    out += esc(text.slice(pos, f.index)) + `<mark>${esc(f.match)}<sup>${f.n}</sup></mark>`;
+    pos = f.index + f.match.length;
+  }
+  return out + esc(text.slice(pos));
 }
 
 async function run() {
@@ -168,27 +256,30 @@ async function run() {
   const out = await clf(text, { top_k: null });
   $("check").disabled = false;
   const probs = Object.fromEntries(out.map((o) => [o.label, o.score]));
-  const flags = RULES.map(([name, rx, why]) => { const m = text.match(rx); return m && { name, why, match: m[0] }; }).filter(Boolean);
+  const flags = RULES.map(([name, rx, why]) => { const m = text.match(rx); return m && { name, why, match: m[0], index: m.index }; }).filter(Boolean);
   const modelLabel = out[0].label;
   const critical = flags.find((f) => CRITICAL.has(f.name));
   const overridden = modelLabel === "ham" && critical;
   const label = overridden ? "smishing" : modelLabel;
-  const [title, advice] = VERDICT[label];
+  const [title, advice, icon] = VERDICT[label];
 
   $("verdict").className = `verdict v-${label}`;
-  $("verdict").innerHTML = overridden
-    ? `${title}<small>${advice}<br>The model alone rated this safe, but it matched the rule "${esc(critical.name)}", which legitimate messages never do.</small>`
-    : `${title} <span style="font-weight:400">(${Math.round(probs[label] * 100)}% confident)</span><small>${advice}</small>`;
+  $("verdict").innerHTML = `<svg class="i shield"><use href="#${icon}"/></svg><div>
+    <h2>${title}${overridden ? "" : ` <span style="font:500 .95rem var(--body);opacity:.8">${Math.round(probs[label] * 100)}% confident</span>`}</h2>
+    <p>${advice}</p>${overridden ? `<p class="override">The model alone rated this safe, but it matched the rule "${esc(critical.name)}", which legitimate messages never do.</p>` : ""}</div>`;
   $("bars").innerHTML = ["smishing", "spam", "ham"].map((k) => `
-    <div class="bar"><span>${k}</span>
+    <div class="bar"><span>${k === "ham" ? "safe" : k === "smishing" ? "scam" : k}</span>
       <div class="track"><div class="fill" style="width:${(probs[k] * 100).toFixed(1)}%;background:${COLOR[k]}"></div></div>
       <span>${(probs[k] * 100).toFixed(1)}%</span></div>`).join("");
 
-  $("flagsTitle").textContent = `Warning signs found: ${flags.length}`;
+  $("flagsTitle").textContent = flags.length ? `${flags.length} warning sign${flags.length > 1 ? "s" : ""} found` : "No warning signs";
+  $("scanned").innerHTML = highlight(text, flags);
   $("flags").innerHTML = flags.length
-    ? flags.map((f) => `<div class="flag"><b>${esc(f.name)}</b><code>${esc(f.match)}</code><br><span>${esc(f.why)}</span></div>`).join("")
-    : `<p class="note">None of the common scam patterns matched.</p>`;
+    ? flags.map((f, i) => `<div class="flag${CRITICAL.has(f.name) ? " critical" : ""}"><span class="n">${i + 1}</span>
+        <div><b>${esc(f.name)}</b><span>${esc(f.why)}</span></div></div>`).join("")
+    : `<p class="none"><svg class="i"><use href="#i-shield-check"/></svg>None of the common scam patterns matched.</p>`;
   $("mismatch").classList.toggle("hidden", !(label === "ham" && flags.length));
+  $("placeholder").classList.add("hidden");
   $("result").classList.remove("hidden");
 }
 
