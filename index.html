@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scam Shield</title>
+<meta name="description" content="Paste an SMS and find out if it is a scam. A fine-tuned DistilBERT model that runs entirely in your browser, with the warning signs highlighted.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2338bdf8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #05070c; --glass: rgba(17, 24, 39, .62); --glass-2: rgba(30, 41, 59, .45); --line: rgba(255, 255, 255, .08);
+    --text: #e6ebf2; --muted: #94a3b8; --accent: #38bdf8; --on-accent: #04111d;
+    --scam: #f87171; --spam: #fbbf24; --ham: #34d399;
+    --display: "Space Grotesk", system-ui, sans-serif; --body: "DM Sans", system-ui, sans-serif;
+    --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+    --bench-h: clamp(520px, calc(100vh - 168px), 860px);
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; }
+  body { margin: 0; min-height: 100vh; color: var(--text); font: 15px/1.55 var(--body);
+    background: radial-gradient(900px 500px at 12% -8%, rgba(56, 189, 248, .16), transparent 60%),
+                radial-gradient(700px 500px at 100% 30%, rgba(99, 102, 241, .12), transparent 60%),
+                linear-gradient(#0a0e17, var(--bg) 40%); background-attachment: fixed; }
+  main { max-width: 1400px; margin: 0 auto; padding: 14px 16px 24px; }
+  svg.i { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+  /* one compact header row */
+  .top { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; margin-bottom: 12px; }
+  .logo { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; flex: none;
+    background: linear-gradient(145deg, rgba(56, 189, 248, .25), rgba(56, 189, 248, .05)); border: 1px solid rgba(56, 189, 248, .35);
+    box-shadow: 0 0 22px rgba(56, 189, 248, .25); color: var(--accent); }
+  .logo svg.i { width: 21px; height: 21px; }
+  h1 { font: 700 1.5rem/1 var(--display); letter-spacing: -.02em; margin: 0; }
+  .tag { color: var(--muted); font-size: .82rem; }
+  .spacer { flex: 1; }
+  .pill { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 999px; font-size: .8rem;
+    border: 1px solid var(--line); background: var(--glass); color: var(--muted); }
+  .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .pill.ready .dot { background: var(--ham); box-shadow: 0 0 10px var(--ham); }
+
+  /* workbench: input left, result right, one screen tall */
+  .bench { display: grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); gap: 14px; height: var(--bench-h); }
+  .col { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .card { background: var(--glass); border: 1px solid var(--line); border-radius: 16px; padding: 14px;
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: 0 18px 44px rgba(0, 0, 0, .32); }
+  .label { font: 600 .7rem var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
+    display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+  .label .spacer { flex: 1; }
+  kbd { font: 600 .7rem var(--body); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--text); letter-spacing: 0; }
+
+  button { font: 500 .88rem var(--body); cursor: pointer; color: var(--text); background: var(--glass-2);
+    border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; min-height: 38px;
+    transition: border-color .15s, background .15s; display: inline-flex; align-items: center; gap: 7px; }
+  button:hover:not(:disabled) { border-color: rgba(56, 189, 248, .55); }
+  button:focus-visible, textarea:focus-visible, .addbox:focus-visible, .ex:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 700; padding: 9px 18px; }
+  button.primary:hover:not(:disabled) { background: #7dd3fc; }
+
+  .msgcard { flex: 0 0 auto; display: flex; flex-direction: column; }
+  .addbox { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 10px; padding: 8px 10px; margin-bottom: 10px;
+    border: 1.5px dashed rgba(148, 163, 184, .35); border-radius: 12px; cursor: pointer; background: rgba(56, 189, 248, .03);
+    transition: border-color .15s, background .15s; }
+  .addbox:hover, .addbox.over { border-color: var(--accent); background: rgba(56, 189, 248, .09); }
+  .addbox .plus { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); }
+  .addbox .plus svg.i { width: 20px; height: 20px; stroke-width: 3; }
+  .addbox b { display: block; font: 600 .95rem/1.2 var(--display); }
+  .addbox small { color: var(--muted); font-size: .78rem; }
+  textarea { width: 100%; height: 118px; resize: vertical; font: .98rem/1.55 var(--body); color: var(--text);
+    background: rgba(2, 6, 14, .6); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+  .row { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+  .hint { color: var(--muted); font-size: .78rem; }
+
+  .excard { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .excard .examples { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; padding-right: 2px; }
+  .excard .ex { flex: 0 0 auto; }
+  .examples { display: grid; gap: 6px; }
+  .ex { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px; align-items: center; text-align: left; width: 100%;
+    padding: 6px 10px; min-height: 0; border-radius: 10px; }
+  .ex .dot { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font: 700 .72rem var(--mono); background: rgba(148, 163, 184, .12); color: var(--muted); }
+  .ex b { display: block; font-weight: 600; font-size: .88rem; }
+  .ex small { display: block; color: var(--muted); font-size: .76rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ex.sel { border-color: var(--accent); background: rgba(56, 189, 248, .1); }
+  .ex.sel .dot { background: var(--accent); color: var(--on-accent); }
+
+  /* result column */
+  .verdict { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 14px; align-items: center; border-radius: 14px; padding: 12px 14px; border: 1px solid; }
+  .verdict .shield { width: 52px; height: 52px; }
+  .verdict h2 { font: 700 1.35rem/1.15 var(--display); margin: 0 0 2px; }
+  .verdict p { margin: 0; color: var(--text); opacity: .85; font-size: .9rem; }
+  .verdict .conf { text-align: right; font: 700 1.6rem/1 var(--display); }
+  .verdict .conf small { display: block; font: 500 .7rem var(--body); letter-spacing: .08em; text-transform: uppercase; opacity: .75; margin-top: 3px; }
+  .v-smishing { color: var(--scam); border-color: rgba(248, 113, 113, .45); background: rgba(248, 113, 113, .08); box-shadow: 0 0 40px rgba(248, 113, 113, .12) inset; }
+  .v-spam { color: var(--spam); border-color: rgba(251, 191, 36, .45); background: rgba(251, 191, 36, .07); }
+  .v-ham { color: var(--ham); border-color: rgba(52, 211, 153, .45); background: rgba(52, 211, 153, .07); }
+  .override { margin-top: 6px !important; font-size: .84rem !important; }
+  .bars { margin-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .bar { font-size: .8rem; }
+  .bar .top2 { display: flex; justify-content: space-between; color: var(--muted); margin-bottom: 4px; }
+  .bar .top2 span:last-child { font-family: var(--mono); color: var(--text); }
+  .track { height: 7px; background: rgba(148, 163, 184, .15); border-radius: 99px; overflow: hidden; }
+  .fill { height: 100%; border-radius: 99px; transition: width .35s ease; }
+
+  .evcard { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .evscroll { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; }
+  .bubble { background: #1f2937; border: 1px solid var(--line); border-radius: 18px 18px 18px 6px; padding: 10px 14px;
+    font-size: .98rem; line-height: 1.6; word-break: break-word; }
+  .bubble .from { font-size: .72rem; color: var(--muted); margin-bottom: 2px; }
+  mark { background: rgba(248, 113, 113, .18); color: #fecaca; border-bottom: 2px solid var(--scam); border-radius: 3px; padding: 0 2px; }
+  mark sup { font: 700 .62rem var(--mono); color: var(--scam); margin-left: 2px; }
+  .flags { margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .flag { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; padding: 8px 10px; border-radius: 12px; background: rgba(148, 163, 184, .06); }
+  .flag .n { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; font: 700 .72rem var(--mono);
+    background: rgba(248, 113, 113, .15); color: var(--scam); border: 1px solid rgba(248, 113, 113, .35); }
+  .flag b { display: block; font-weight: 600; font-size: .92rem; }
+  .flag.critical b::after { content: "overrides the model"; margin-left: 8px; font: 600 .62rem var(--display);
+    letter-spacing: .08em; text-transform: uppercase; color: var(--scam); border: 1px solid rgba(248, 113, 113, .4); padding: 1px 6px; border-radius: 5px; white-space: nowrap; }
+  .flag span { color: var(--muted); font-size: .84rem; }
+  .none { color: var(--muted); font-size: .9rem; display: flex; gap: 8px; align-items: center; margin: 12px 0 0; }
+  .empty { flex: 1; color: var(--muted); display: grid; place-items: center; text-align: center; gap: 10px; }
+  .empty svg.i { width: 44px; height: 44px; color: rgba(56, 189, 248, .6); }
+
+  .about { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) 2fr; gap: 10px; margin-top: 12px; align-items: stretch; }
+  .stat { border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; background: var(--glass); }
+  .stat b { display: block; font: 700 1.15rem var(--display); }
+  .stat span { color: var(--muted); font-size: .76rem; }
+  .credit { color: var(--muted); font-size: .78rem; line-height: 1.5; align-self: center; }
+  a { color: var(--accent); }
+  .hidden { display: none !important; }
+  .mob { display: none; }
+
+  @media (max-width: 900px) {
+    .bench { grid-template-columns: minmax(0, 1fr); height: auto; }
+    .excard .examples { overflow-y: hidden; }
+    .excard .examples { flex-direction: row; overflow-x: auto; gap: 8px; scroll-snap-type: x mandatory; padding-bottom: 4px; }
+    .ex { width: 190px; flex: none; scroll-snap-align: start; }
+    .evcard { min-height: 0; }
+    .evscroll { overflow: visible; }
+    .verdict { grid-template-columns: 44px minmax(0, 1fr); }
+    .verdict .shield { width: 44px; height: 44px; }
+    .verdict .conf { grid-column: 2; text-align: left; font-size: 1.2rem; }
+    .about { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .credit { grid-column: 1 / -1; }
+    .desk { display: none !important; }
+    .mob { display: inline; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+  <symbol id="i-shield-x" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m14.5 9.5-5 5M9.5 9.5l5 5"/></symbol>
+  <symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-megaphone" viewBox="0 0 24 24"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-msg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+</svg>
+
+<main>
+  <div class="top">
+    <div class="logo"><svg class="i"><use href="#i-shield"/></svg></div>
+    <div><h1>Scam Shield</h1><div class="tag">Is this SMS a scam? Warning signs highlighted.</div></div>
+    <div class="spacer"></div>
+    <span class="pill"><svg class="i"><use href="#i-lock"/></svg>Runs on your device</span>
+    <span class="pill" id="pill"><span class="dot"></span><span id="status">Loading model (67 MB, once)…</span></span>
+  </div>
+
+  <div class="bench">
+    <section class="col">
+      <div class="card msgcard">
+        <div class="label"><svg class="i"><use href="#i-msg"/></svg>Message</div>
+        <div class="addbox" id="addbox" role="button" tabindex="0" aria-label="Paste an SMS from the clipboard and scan it">
+          <span class="plus" aria-hidden="true"><svg class="i"><use href="#i-plus"/></svg></span>
+          <span><b>Paste an SMS</b><small class="desk">click here, or <kbd>Ctrl</kbd>+<kbd>V</kbd> anywhere · drop text</small><small class="mob">tap to paste from your clipboard</small></span>
+        </div>
+        <textarea id="msg" placeholder="…or type it here" aria-label="SMS message to check"></textarea>
+        <div class="row"><button class="primary" id="check" disabled><svg class="i"><use href="#i-scan"/></svg>Scan</button>
+          <span class="hint desk"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to scan</span></div>
+      </div>
+      <div class="card excard">
+        <div class="label"><svg class="i"><use href="#i-list"/></svg>Try an example<span class="spacer"></span><span class="desk"><kbd>↑</kbd><kbd>↓</kbd></span></div>
+        <div class="examples" id="examples"></div>
+      </div>
+    </section>
+
+    <section class="col">
+      <div class="card" id="vcard">
+        <div class="label">Verdict</div>
+        <div id="verdict" class="verdict v-ham" aria-live="polite">
+          <svg class="i shield" style="color:var(--muted)"><use href="#i-shield"/></svg><div><h2 style="color:var(--muted)">Waiting for a message</h2><p>Paste, type or pick an example.</p></div>
+        </div>
+        <div class="bars" id="bars"></div>
+      </div>
+      <div class="card evcard">
+        <div class="label"><svg class="i"><use href="#i-alert"/></svg><span id="flagsTitle">Warning signs</span></div>
+        <div class="evscroll">
+          <div class="bubble"><div class="from">Scanned message</div><div id="scanned" style="color:var(--muted)">Nothing scanned yet.</div></div>
+          <div class="flags" id="flags"></div>
+          <p id="mismatch" class="none hidden"><svg class="i"><use href="#i-alert"/></svg>
+            The model thinks this is safe, but it has warning signs. Check with the company through its official app or helpline.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="about">
+    <div class="stat"><b>141 / 144</b><span>test scams caught</span></div>
+    <div class="stat"><b>4 / 726</b><span>false alarms on real SMS</span></div>
+    <div class="stat"><b>67 MB</b><span>model, in your browser</span></div>
+    <div class="credit">Tested on 870 held-out SMS; still weak on Hinglish and some real bank alerts. Not a guarantee:
+      report fraud at <a href="https://cybercrime.gov.in" rel="noopener">cybercrime.gov.in</a> or call <b>1930</b>.
+      <a href="https://github.com/VivekVagale/scam-shield">Code</a> · by Vivek Vagale</div>
+  </div>
+</main>
+
+<script type="module">
+import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3";
+
+env.allowRemoteModels = false;
+env.allowLocalModels = true;
+env.localModelPath = "./models/";
+
+const EXAMPLES = [
+  ["KYC scam", "Dear Customer, your account will be blocked today. Update your KYC now: http://bank-kyc-verify.top/login"],
+  ["Electricity scam", "Your power will be disconnected tonight at 9.30 PM as last month bill is not updated. Call officer 9876512345"],
+  ["Job scam", "Earn Rs 5000 daily from home by rating hotels on Google. Message HR on Telegram t.me/hr_asha21 to start today"],
+  ["OTP ask (scam)", "Your SBI account is suspended. Share the OTP sent to your number to reactivate within 2 hours."],
+  ["Bank OTP (real)", "482913 is your OTP to log in to your Axis Bank account. Valid for 5 minutes. Do not share it with anyone."],
+  ["Friend", "Bro reached college? Bring my charger pls"],
+];
+
+// Same rules as src/redflags.py
+const RULES = [
+  ["Asks for OTP / PIN", /\b(share|send|tell|give)\b[^.]{0,30}?\b(otp|pin|cvv|password)\b/i,
+   "No bank, app or company ever asks you to share an OTP, PIN or CVV."],
+  ["UPI collect / pay link", /upi:\/\/\S+/i,
+   "A UPI link sends money FROM you. You never need to pay to receive money."],
+  ["Short or unofficial link", /\b(bit\.ly|tinyurl\.com|cutt\.ly|t\.me|wa\.me|is\.gd|smsg\.io)\/\S+|https?:\/\/[^\s/]+\.(top|site|online|info|xyz|co|in)\/?\S*/i,
+   "Shortened or look-alike links hide where they go. Official links use the company's own domain."],
+  ["Threat or deadline", /\b(blocked?|suspend(ed)?|deactivat\w*|disconnect\w*|expire[sd]?|lapse|arrest\w*|fir|legal action|within \d+ ?(hrs?|hours|minutes)|tonight|immediately|urgent)\b/i,
+   "Scams create panic so you act before you think."],
+  ["Prize, refund or easy money", /\b(won|winner|lottery|lucky draw|cashback|refund|reward points?|daily income|earn rs|part time job|work from home)\b/i,
+   "Unexpected money is the most common bait."],
+  ["Asks you to call or chat a private number", /\b(call|contact|whatsapp|telegram)\b[^.]{0,40}?\b[6-9]\d{9}\b/i,
+   "Real companies use listed helplines, not personal 10-digit mobile numbers."],
+  ["Asks for KYC / PAN / Aadhaar update", /\b(kyc|pan|aadhaar)\b[^.]{0,40}?\b(update|link|verify|pending|expired?)\b|\b(update|link|verify)\b[^.]{0,30}?\b(kyc|pan|aadhaar)\b/i,
+   "KYC is done in the bank's app or branch, never through an SMS link."],
+];
+// Rules precise enough to override a "safe" verdict (same as CRITICAL in src/redflags.py)
+const CRITICAL = new Set(["Asks for OTP / PIN", "UPI collect / pay link"]);
+
+const VERDICT = {
+  smishing: ["Likely a scam", "Do not click links, call numbers or share any code from this message.", "i-shield-x"],
+  spam: ["Promotional spam", "Probably an ad. Annoying, not usually dangerous.", "i-megaphone"],
+  ham: ["Looks legitimate", "Nothing scam-like found. Still, never share an OTP.", "i-shield-check"],
+};
+const COLOR = { smishing: "var(--scam)", spam: "var(--spam)", ham: "var(--ham)" };
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+let clf, exIdx = -1;
+
+// ---------- examples: click, or ↑ ↓ keys ----------
+EXAMPLES.forEach(([label, text], i) => {
+  const b = document.createElement("button");
+  b.className = "ex";
+  b.innerHTML = `<span class="dot">${i + 1}</span><span><b>${esc(label)}</b><small>${esc(text)}</small></span>`;
+  b.onclick = () => pickExample(i);
+  $("examples").append(b);
+});
+function pickExample(i) {
+  exIdx = (i + EXAMPLES.length) % EXAMPLES.length;
+  document.querySelectorAll(".ex").forEach((b, k) => b.classList.toggle("sel", k === exIdx));
+  document.querySelectorAll(".ex")[exIdx].scrollIntoView({ block: "nearest", inline: "nearest" });
+  $("msg").value = EXAMPLES[exIdx][1];
+  run();
+}
+document.addEventListener("keydown", (e) => {
+  if (e.target instanceof Element && e.target.matches("textarea, input")) return;
+  if (e.key === "ArrowDown") { e.preventDefault(); pickExample(exIdx + 1); }
+  if (e.key === "ArrowUp") { e.preventDefault(); pickExample(exIdx - 1); }
+});
+
+// ---------- input: typing, the "+" box, Ctrl+V anywhere, dropped text ----------
+function useText(text) {
+  text = (text || "").trim();
+  if (!text) return;
+  exIdx = -1; document.querySelectorAll(".ex").forEach((b) => b.classList.remove("sel"));
+  $("msg").value = text;
+  run();
+}
+$("addbox").onclick = async () => {
+  try { useText(await navigator.clipboard.readText()); }
+  catch { $("msg").focus(); $("status").textContent = "Press Ctrl+V to paste (this browser blocked the button)"; }
+};
+$("addbox").onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("addbox").click(); } };
+// paste outside the text box: take the text and scan it; inside the box, let it paste, then scan
+document.addEventListener("paste", (e) => {
+  if (e.target === $("msg")) { setTimeout(() => { exIdx = -1; document.querySelectorAll(".ex").forEach((b) => b.classList.remove("sel")); run(); }, 0); return; }
+  const text = e.clipboardData?.getData("text");
+  if (text) { e.preventDefault(); useText(text); }
+});
+$("addbox").addEventListener("dragover", (e) => { e.preventDefault(); $("addbox").classList.add("over"); });
+$("addbox").addEventListener("dragleave", () => $("addbox").classList.remove("over"));
+$("addbox").addEventListener("drop", (e) => { e.preventDefault(); $("addbox").classList.remove("over"); useText(e.dataTransfer.getData("text")); });
+
+// ---------- model ----------
+try {
+  clf = await pipeline("text-classification", "scam-shield", {
+    dtype: "q8",
+    progress_callback: (p) => {
+      if (p.status === "progress" && p.file.endsWith(".onnx")) {
+        $("status").textContent = `Loading model… ${Math.round((100 * p.loaded) / p.total)}%`;
+      }
+    },
+  });
+  $("status").textContent = "Model ready";
+  $("pill").classList.add("ready");
+  $("check").disabled = false;
+  if ($("msg").value.trim()) run(); else pickExample(0);
+} catch (e) {
+  $("status").textContent = "Could not load the model: " + e.message;
+}
+
+// the message with each rule's match wrapped in <mark>, numbered like the list below it
+function highlight(text, flags) {
+  const spans = flags.map((f, i) => ({ ...f, n: i + 1 })).filter((f) => f.index >= 0).sort((a, b) => a.index - b.index);
+  let out = "", pos = 0;
+  for (const f of spans) {
+    if (f.index < pos) continue;   // overlaps an earlier highlight: keep the first
+    out += esc(text.slice(pos, f.index)) + `<mark>${esc(f.match)}<sup>${f.n}</sup></mark>`;
+    pos = f.index + f.match.length;
+  }
+  return out + esc(text.slice(pos));
+}
+
+async function run() {
+  const text = $("msg").value.trim();
+  if (!text || !clf) return;
+  $("check").disabled = true;
+  const out = await clf(text, { top_k: null });
+  $("check").disabled = false;
+  const probs = Object.fromEntries(out.map((o) => [o.label, o.score]));
+  const flags = RULES.map(([name, rx, why]) => { const m = text.match(rx); return m && { name, why, match: m[0], index: m.index }; }).filter(Boolean);
+  const modelLabel = out[0].label;
+  const critical = flags.find((f) => CRITICAL.has(f.name));
+  const overridden = modelLabel === "ham" && critical;
+  const label = overridden ? "smishing" : modelLabel;
+  const [title, advice, icon] = VERDICT[label];
+
+  $("verdict").className = `verdict v-${label}`;
+  $("verdict").innerHTML = `<svg class="i shield"><use href="#${icon}"/></svg>
+    <div><h2>${title}</h2><p>${advice}</p>${overridden ? `<p class="override">The model alone rated this safe, but it matched "${esc(critical.name)}", which legitimate messages never do.</p>` : ""}</div>
+    <div class="conf">${overridden ? "Rule" : Math.round(probs[label] * 100) + "%"}<small>${overridden ? "override" : "confident"}</small></div>`;
+  $("bars").innerHTML = ["smishing", "spam", "ham"].map((k) => `
+    <div class="bar"><div class="top2"><span>${k === "ham" ? "Safe" : k === "smishing" ? "Scam" : "Spam"}</span><span>${(probs[k] * 100).toFixed(1)}%</span></div>
+      <div class="track"><div class="fill" style="width:${(probs[k] * 100).toFixed(1)}%;background:${COLOR[k]}"></div></div></div>`).join("");
+
+  $("flagsTitle").textContent = flags.length ? `${flags.length} warning sign${flags.length > 1 ? "s" : ""} found` : "No warning signs";
+  $("scanned").style.color = "";
+  $("scanned").innerHTML = highlight(text, flags);
+  $("flags").innerHTML = flags.map((f, i) => `<div class="flag${CRITICAL.has(f.name) ? " critical" : ""}"><span class="n">${i + 1}</span>
+      <div><b>${esc(f.name)}</b><span>${esc(f.why)}</span></div></div>`).join("");
+  $("mismatch").classList.toggle("hidden", !(label === "ham" && flags.length));
+}
+
+$("check").onclick = run;
+$("msg").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run(); });
+</script>
+</body>
+</html>
