@@ -7,14 +7,14 @@ on:
 
 jobs:
   pytest:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       # The tests cover the data pipeline, metrics and red-flag rules;
       # torch and transformers are only needed for training.
-      - run: pip install "pandas>=2.2" "scikit-learn>=1.5" "pytest>=8.0"
+      - run: pip install "pandas>=2.2" "scikit-learn>=1.5" "pytest>=8.0" pytest-github-actions-annotate-failures
       # Downloads the public dataset (245 KB) on a fresh checkout.
-      - run: python -m pytest -q
+      - run: python -m pytest -q -rs
