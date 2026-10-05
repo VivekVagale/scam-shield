@@ -1,5 +1,7 @@
 # Scam Shield
 
+[![tests](https://github.com/VivekVagale/scam-shield/actions/workflows/tests.yml/badge.svg)](https://github.com/VivekVagale/scam-shield/actions/workflows/tests.yml)
+
 **Paste an SMS, find out if it is a scam.** A fine-tuned DistilBERT model sorts
 messages into **smishing** (phishing by SMS: fake KYC, bill, courier, prize,
 job offers), **spam** (unwanted promotion) or **ham** (legitimate), and plain
