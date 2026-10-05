@@ -33,7 +33,10 @@ def download() -> None:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     zip_path = RAW_DIR / "Dataset_5971.zip"
     print(f"downloading {ZIP_URL}")
-    urllib.request.urlretrieve(ZIP_URL, zip_path)
+    # Mendeley answers 403 to Python's default User-Agent, so name the client.
+    req = urllib.request.Request(ZIP_URL, headers={"User-Agent": "scam-shield (+https://github.com/VivekVagale/scam-shield)"})
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        zip_path.write_bytes(resp.read())
     with zipfile.ZipFile(zip_path) as z:
         z.extractall(RAW_DIR)
 
